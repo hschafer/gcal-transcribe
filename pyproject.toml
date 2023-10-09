@@ -8,8 +8,14 @@ packages = [{include = "gcal_transcribe"}]
 
 [tool.poetry.dependencies]
 python = "^3.8"
+google-api-python-client = "^2.102.0"
+google-auth-httplib2 = "^0.1.1"
+google-auth-oauthlib = "^1.1.0"
 
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+gcal-transcribe = "gcal_transcribe.main:main"
