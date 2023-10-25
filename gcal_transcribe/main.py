@@ -1,5 +1,7 @@
 import datetime
 import os.path
+import time
+from typing import Any, Generator
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -14,7 +16,7 @@ READ_SCOPES = ["https://www.googleapis.com/auth/calendar.readonly"]
 READ_WRITE_SCOPES = ["https://www.googleapis.com/auth/calendar"]
 
 
-def connect(scopes: list[str], token_file: str) -> Credentials:
+def connect(scopes: list[str], name: str, token_file: str) -> Credentials:
     """
     Gets Credentials for the given scopes and saves to a JSON file for later.
     If the given token_file exists, attempts to use that token and will refresh
@@ -26,10 +28,11 @@ def connect(scopes: list[str], token_file: str) -> Credentials:
     # created automatically when the authorization flow completes for the first
     # time.
     if os.path.exists(token_file):
-        creds = Credentials.from_authorized_user_file("token.json", scopes)
+        creds = Credentials.from_authorized_user_file(token_file, scopes)
 
     # If there are no (valid) credentials available, let the user log in.
     if not creds or not creds.valid:
+        input(f"Requesting a token for the {name} account. Enter to continue:")
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
@@ -43,42 +46,48 @@ def connect(scopes: list[str], token_file: str) -> Credentials:
     return creds
 
 
+def get_all_events(creds: Credentials, page_size: int = 100, sleep_time: int = 0.5, limit: int | None = None) -> Generator[dict[str, Any], None, None]:
+    service = build("calendar", "v3", credentials=creds)
+
+    sentinel_token = ""
+    page_token = None
+    while page_token != sentinel_token:
+        events_result = (
+            service.events()
+            .list(
+                calendarId='primary',
+                maxResults=page_size,
+                pageToken=page_token,
+            )
+            .execute()
+        )
+
+        events = events_result.get("items", [])
+
+        for event in events:
+            # Check if we have exceeded limit
+            if limit is not None:
+                if limit == 0:
+                    return # Exit out of this function
+                else:
+                    limit -= 1
+
+            yield event
+
+        page_token = events_result.get("nextPageToken", sentinel_token)
+        time.sleep(sleep_time)
+
+
 def main():
     """Shows basic usage of the Google Calendar API.
     Prints the start and name of the next 10 events on the user's calendar.
     """
-    creds = connect(READ_SCOPES, "token.json")
+    src_creds = connect(READ_SCOPES, "SOURCE", "src_token.json")
+    dest_creds = connect(READ_WRITE_SCOPES, "DESTINATION", "dest_token.json")
 
-    try:
-        service = build("calendar", "v3", credentials=creds)
-
-        # Call the Calendar API
-        now = datetime.datetime.utcnow().isoformat() + "Z"  # 'Z' indicates UTC time
-        print("Getting the upcoming 10 events")
-        events_result = (
-            service.events()
-            .list(
-                calendarId="primary",
-                timeMin=now,
-                maxResults=10,
-                singleEvents=True,
-                orderBy="startTime",
-            )
-            .execute()
-        )
-        events = events_result.get("items", [])
-
-        if not events:
-            print("No upcoming events found.")
-            return
-
-        # Prints the start and name of the next 10 events
-        for event in events:
-            start = event["start"].get("dateTime", event["start"].get("date"))
-            print(start, event["summary"])
-
-    except HttpError as error:
-        print("An error occurred: %s" % error)
+    events = get_all_events(src_creds, limit=5)
+    for event in events:
+        print(event)
 
 
 if __name__ == "__main__":
