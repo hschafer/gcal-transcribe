@@ -7,10 +7,12 @@ Running this script will require access to both the source account and the targe
 * Removing all invitees and including them as part of the event description (to avoid sending invites)
 * Adding a note to the description that this event was imported from the original account.
 
-## Installation
+> 📒 **Note** This is not a published Google application, so you will need to do some extra set up to run the application by making your own test application. We save credentials to JSON files that should **never** be committed or shared outside of your own computer.
 
-TODO
+## Installation and Setup
 
-## Instructions
+**Requires:** [`poetry`](https://python-poetry.org/)
 
-TODO
+1. Run `poetry install`
+2. To create a Google Cloud Project following the instructions for "Set up your environment" [here](https://developers.google.com/calendar/api/quickstart/python#set_up_your_environment). Save the app credentials to `credentials.json` in the root of this project.
+3. Run `poetry run gcal-transcribe` and follow the instructions there. Again, never share the JSON files created with authorization tokens.
